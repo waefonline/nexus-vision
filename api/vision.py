@@ -1,21 +1,12 @@
 """
 Nexus Vision API - Proxy for Gemini Vision
 Extracts trading signals from images using Google Gemini Vision AI.
-API key is stored in Vercel environment variables (GEMINI_API_KEY).
 """
 
 import os
 import json
 import base64
 from http.server import BaseHTTPRequestHandler
-
-# Try to import google.generativeai
-try:
-    import google.generativeai as genai
-    GENAI_AVAILABLE = True
-except ImportError:
-    GENAI_AVAILABLE = False
-
 
 # Prompt for signal extraction
 SIGNAL_EXTRACTION_PROMPT = """
@@ -40,13 +31,24 @@ Be concise. Return only the signal data, no explanations.
 
 
 class handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        """Health check endpoint."""
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.end_headers()
+        response = {
+            "status": "ok",
+            "service": "nexus-vision-api",
+            "version": "1.0.0"
+        }
+        self.wfile.write(json.dumps(response).encode())
+    
     def do_POST(self):
         """Handle POST request with image data."""
         try:
-            # Check if genai is available
-            if not GENAI_AVAILABLE:
-                self._send_error(500, "google-generativeai not installed")
-                return
+            # Import here to avoid cold start issues
+            import google.generativeai as genai
             
             # Get API key from environment
             api_key = os.environ.get("GEMINI_API_KEY")
@@ -70,13 +72,10 @@ class handler(BaseHTTPRequestHandler):
                     self._send_error(400, "Missing 'image' field in request")
                     return
             except json.JSONDecodeError:
-                # Assume raw image bytes
                 image_base64 = base64.b64encode(body).decode('utf-8')
             
             # Configure Gemini
             genai.configure(api_key=api_key)
-            
-            # Create model and process image
             model = genai.GenerativeModel('gemini-1.5-flash')
             
             # Decode image
@@ -90,7 +89,6 @@ class handler(BaseHTTPRequestHandler):
             
             # Generate content
             response = model.generate_content([SIGNAL_EXTRACTION_PROMPT, image_part])
-            
             extracted_text = response.text.strip()
             
             # Send success response
@@ -103,29 +101,6 @@ class handler(BaseHTTPRequestHandler):
         except Exception as e:
             self._send_error(500, f"Error processing image: {str(e)}")
     
-    def do_GET(self):
-        """Health check endpoint."""
-        self._send_json(200, {
-            "status": "ok",
-            "service": "nexus-vision-api",
-            "version": "1.0.0"
-        })
-    
-    def _send_json(self, status_code: int, data: dict):
-        """Send JSON response."""
-        self.send_response(status_code)
-        self.send_header('Content-Type', 'application/json')
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.end_headers()
-        self.wfile.write(json.dumps(data).encode())
-    
-    def _send_error(self, status_code: int, message: str):
-        """Send error response."""
-        self._send_json(status_code, {
-            "success": False,
-            "error": message
-        })
-    
     def do_OPTIONS(self):
         """Handle CORS preflight."""
         self.send_response(200)
@@ -133,3 +108,13 @@ class handler(BaseHTTPRequestHandler):
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         self.end_headers()
+    
+    def _send_json(self, status_code, data):
+        self.send_response(status_code)
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.end_headers()
+        self.wfile.write(json.dumps(data).encode())
+    
+    def _send_error(self, status_code, message):
+        self._send_json(status_code, {"success": False, "error": message})
