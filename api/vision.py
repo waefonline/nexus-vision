@@ -76,7 +76,7 @@ class handler(BaseHTTPRequestHandler):
             
             # Configure Gemini
             genai.configure(api_key=api_key)
-            model = genai.GenerativeModel('gemini-1.5-pro')
+            model = genai.GenerativeModel('gemini-2.0-flash')
             
             # Decode image
             image_bytes = base64.b64decode(image_base64)
@@ -118,5 +118,3 @@ class handler(BaseHTTPRequestHandler):
     
     def _send_error(self, status_code, message):
         self._send_json(status_code, {"success": False, "error": message})
-
-
