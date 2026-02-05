@@ -1,6 +1,9 @@
 """
 Nexus Vision API - Proxy for Gemini Vision
 Extracts trading signals from images using Google Gemini Vision AI.
+
+Updated to use the new google.genai SDK (December 2024)
+Replaces deprecated google.generativeai library
 """
 
 import os
@@ -40,15 +43,16 @@ class handler(BaseHTTPRequestHandler):
         response = {
             "status": "ok",
             "service": "nexus-vision-api",
-            "version": "1.0.0"
+            "version": "2.0.0",  # Updated version for new SDK
+            "sdk": "google-genai"
         }
         self.wfile.write(json.dumps(response).encode())
     
     def do_POST(self):
         """Handle POST request with image data."""
         try:
-            # Import here to avoid cold start issues
-            import google.generativeai as genai
+            # Import the new Google GenAI SDK
+            from google import genai
             
             # Get API key from environment
             api_key = os.environ.get("GEMINI_API_KEY")
@@ -74,21 +78,28 @@ class handler(BaseHTTPRequestHandler):
             except json.JSONDecodeError:
                 image_base64 = base64.b64encode(body).decode('utf-8')
             
-            # Configure Gemini
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel('gemini-3-pro-preview')
+            # Create client with API key
+            client = genai.Client(api_key=api_key)
             
             # Decode image
             image_bytes = base64.b64decode(image_base64)
             
-            # Create image part for Gemini
+            # Create image part for Gemini (new format)
             image_part = {
-                "mime_type": "image/jpeg",
-                "data": image_bytes
+                "inline_data": {
+                    "mime_type": "image/jpeg",
+                    "data": image_base64  # Already base64 encoded
+                }
             }
             
-            # Generate content
-            response = model.generate_content([SIGNAL_EXTRACTION_PROMPT, image_part])
+            # Generate content using new SDK structure
+            response = client.models.generate_content(
+                model='gemini-2.0-flash',
+                contents=[
+                    SIGNAL_EXTRACTION_PROMPT,
+                    image_part
+                ]
+            )
             extracted_text = response.text.strip()
             
             # Send success response
@@ -118,4 +129,3 @@ class handler(BaseHTTPRequestHandler):
     
     def _send_error(self, status_code, message):
         self._send_json(status_code, {"success": False, "error": message})
-
