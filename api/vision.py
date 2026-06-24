@@ -55,9 +55,9 @@ class handler(BaseHTTPRequestHandler):
             from google import genai
             
             # Get API key from environment
-            api_key = os.environ.get("GEMINI_API_KEY")
+            api_key = os.environ.get("_API_KEY")
             if not api_key:
-                self._send_error(500, "GEMINI_API_KEY not configured")
+                self._send_error(500, "_API_KEY not configured")
                 return
             
             # Read request body
@@ -94,7 +94,7 @@ class handler(BaseHTTPRequestHandler):
             
             # Generate content using new SDK structure
             response = client.models.generate_content(
-                model='gemini-2.0-flash',
+                model='gemini-flash-latest',
                 contents=[
                     SIGNAL_EXTRACTION_PROMPT,
                     image_part
