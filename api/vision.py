@@ -13,25 +13,40 @@ from http.server import BaseHTTPRequestHandler
 
 # Prompt for signal extraction
 SIGNAL_EXTRACTION_PROMPT = """
-Analyze this trading signal image and extract the following information if present:
-- Symbol (e.g., XAUUSD, EURUSD, GOLD, etc.)
+You are extracting NEW trade entry signals from an image for an automated copier.
+
+CRITICAL: Many images are NOT new signals — they are UPDATES about a trade
+already running. You MUST distinguish them.
+
+Return exactly the token  IMAGE_IS_UPDATE  (and nothing else) if the image shows
+ANY of these — even if it also contains signal-looking text:
+- A price CHART / candlestick graph / TradingView-style screenshot.
+- A broker / MetaTrader screenshot of OPEN POSITIONS, account balance, equity,
+  margin, or a list of running trades.
+- The signal data appears as a QUOTED / REPLIED message (e.g. shown in a reply
+  box or banner at the top, referencing an earlier message).
+- Caption or text indicating the trade is already live: "breakeven", "set BE",
+  "TP hit", "TP inbound", "in profit", "running", "risk free", "zero risk",
+  "secure profit", "partial close", "we are in", "closed", "stopped out".
+
+ONLY if the image is a CLEAN, NEW entry signal (no chart, no open positions, not
+a quoted/reply message, no in-progress wording) extract:
+- Symbol (XAUUSD, EURUSD, GOLD, etc.)
 - Action (BUY or SELL)
 - Entry price or entry zone (range)
 - Stop Loss (SL)
-- Take Profit levels (TP1, TP2, TP3, etc.)
+- Take Profit levels (TP1, TP2, TP3...)
 
-Return ONLY the extracted text in a simple format like:
+Return ONLY the extracted text in this format:
 SYMBOL ACTION @ ENTRY
 SL: [value]
 TP1: [value]
 TP2: [value]
 ...
 
-If no trading signal is found in the image, return: NO_SIGNAL_FOUND
-
-Be concise. Return only the signal data, no explanations.
+If no trading signal is found at all, return: NO_SIGNAL_FOUND
+Be concise. Return only the signal data, the IMAGE_IS_UPDATE token, or NO_SIGNAL_FOUND — no explanations.
 """
-
 
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
